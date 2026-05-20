@@ -13,10 +13,7 @@ const ALLOWED_PATHS = [
 const ratelimit = new Ratelimit({
   redis: kv,
   // 5 requests from the same IP in 10 seconds
-  limiter: Ratelimit.build_sliding_window_limiter({
-    limit: 5,
-    window: "10s",
-  }),
+  limiter: Ratelimit.slidingWindow(5, "10s"),
 });
 
 function isAllowed(path: string) {

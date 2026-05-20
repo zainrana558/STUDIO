@@ -7,7 +7,7 @@ type ProviderBuilder = (params: { id: string; s?: string; e?: string }) => strin
 
 const ratelimit = new Ratelimit({
   redis: kv,
-  limiter: Ratelimit.build_sliding_window_limiter({ limit: 10, window: "10s" }),
+  limiter: Ratelimit.slidingWindow(10, "10s"),
 });
 
 const providerUrlMap: Record<string, ProviderBuilder> = {
@@ -29,7 +29,7 @@ export async function GET(
   const { success } = await ratelimit.limit(`ratelimit_embed_${ip}`);
 
   if (!success) {
-    return new NextResponse('Too many requests', { status: 429 });
+    return new NextResponse(JSON.stringify({ message: 'Too many requests' }), { status: 429, headers: { 'Content-Type': 'application/json' } });
   }
 
   const { searchParams } = new URL(request.url);
@@ -57,7 +57,7 @@ export async function GET(
 
   try {
     const embedUrl = builder({ id, s: season, e: episode });
-    return NextResponse.redirect(embedUrl, { status: 301 });
+    return NextResponse.redirect(embedUrl, { status: 307 });
   } catch (error) {
       console.error(`[EMBED_REDIRECT_ERROR] for provider ${provider}:`, error);
       const message = error instanceof Error ? error.message : "An unknown error occurred during URL construction.";
