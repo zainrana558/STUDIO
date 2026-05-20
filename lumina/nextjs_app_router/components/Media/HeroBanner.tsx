@@ -1,10 +1,10 @@
 "use client";
 
 import { motion, useScroll, useTransform } from 'framer-motion';
-import Image from 'next/image'; // <-- Import next/image
+import Image from 'next/image';
 import { Media } from '../../types/media';
 import { Theme } from '../../lib/themes';
-import { Button } from '../UI/Button'; // <-- Import Button component
+import { Button } from '../UI/Button';
 
 interface HeroBannerProps {
     media: Media;
@@ -16,29 +16,23 @@ interface HeroBannerProps {
  */
 export const HeroBanner = ({ media, theme }: HeroBannerProps) => {
     const { scrollYProgress } = useScroll();
-    // Create a parallax effect
     const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
     return (
         <div className="h-[90vh] w-full relative overflow-hidden" style={{ background: theme.colors.secondary }}>
-            {/* Background Image with Parallax, using next/image */}
             <motion.div className="absolute inset-0 z-0" style={{ y }}>
                 <Image
                     src={`https://image.tmdb.org/t/p/original${media.backdrop_path}`}
                     alt={media.title || media.name || 'Hero background'}
-                    layout="fill"
-                    objectFit="cover"
-                    objectPosition="center"
-                    priority // Prioritize loading of this critical image
-                    unoptimized // Required for external image providers like TMDB
+                    fill
+                    style={{ objectFit: 'cover', objectPosition: 'center' }}
+                    priority
                 />
-                {/* Gradient overlay for text readability */}
                 <div 
                     className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"
                 />
             </motion.div>
 
-            {/* Content */}
             <div className="relative z-10 flex flex-col justify-end h-full p-8 md:p-12 text-white">
                 <motion.h1
                     initial={{ opacity: 0, y: 20 }}

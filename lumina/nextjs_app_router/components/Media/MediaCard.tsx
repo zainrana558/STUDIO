@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Media } from '../../types/media';
 import { Theme } from '../../lib/themes';
 
@@ -19,12 +20,6 @@ export const MediaCard = ({ item, theme }: MediaCardProps) => {
   const imageUrl = `https://image.tmdb.org/t/p/w500${item.poster_path}`;
   const mediaType = item.media_type || 'movie';
 
-  // --- Dynamic Theme-Based Styling with Tailwind CSS ---
-  
-  // Base container classes applied to all themes.
-  const baseContainerClasses = 'relative block w-full overflow-hidden group';
-
-  // Theme-specific hover effects for the image overlay.
   const themeOverlayEffects: Record<Theme['id'], string> = {
     anime: 'group-hover:shadow-[0_0_25px_var(--color-accent)] group-hover:border-2 group-hover:border-[var(--color-accent)]',
     cartoon: 'group-hover:scale-110',
@@ -34,7 +29,6 @@ export const MediaCard = ({ item, theme }: MediaCardProps) => {
     default: 'group-hover:brightness-110',
   };
 
-  // Theme-specific title text color on hover.
   const themeTitleHoverColor: Record<Theme['id'], string> = {
     anime: 'group-hover:text-[var(--color-primary)]',
     cartoon: 'group-hover:text-[var(--color-primary)]',
@@ -46,25 +40,24 @@ export const MediaCard = ({ item, theme }: MediaCardProps) => {
 
   return (
     <motion.div
-      // Animate presence with a subtle slide-up and fade-in.
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ ...theme.motion.spring, duration: 0.4 }} // Use theme's spring physics
+      transition={{ ...theme.motion.spring, duration: 0.4 }}
     >
       <Link href={`/${mediaType}/${item.id}`} passHref>
         <motion.div
-          className={`${baseContainerClasses} ${theme.styles.card.borderRadius}`}
+          className={`relative block w-full overflow-hidden group ${theme.styles.card.borderRadius}`}
           whileHover="hover"
           variants={{ hover: { scale: 1.05 } }}
-          transition={{ ...theme.motion.spring, duration: 0.3 }} // Hover animation also uses theme physics
+          transition={{ ...theme.motion.spring, duration: 0.3 }}
         >
-          {/* Aspect Ratio Container for CLS Prevention */}
           <div className={`aspect-[2/3] bg-black/50 ${themeOverlayEffects[theme.id]} transition-all duration-300 ${theme.styles.card.borderRadius}`}>
-            <img
+            <Image
               src={imageUrl}
               alt={item.title || item.name || ''}
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-in-out group-hover:scale-105"
-              loading="lazy"
+              fill
+              style={{ objectFit: 'cover' }}
+              className="transition-transform duration-500 ease-in-out group-hover:scale-105"
             />
           </div>
           
