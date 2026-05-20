@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import '../styles/globals.css';
 import { PageTransition } from '../components/Layout/PageTransition';
 import { ResponsiveLayout } from '../components/Layout/ResponsiveLayout';
@@ -12,7 +13,7 @@ const orbitron = Orbitron({ subsets: ['latin'], variable: '--font-orbitron' });
 const playfairDisplay = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair-display' });
 
 export const metadata = {
-  title: 'Luminaa2 - Next-Gen Streaming',
+  title: 'Lumina - Next-Gen Streaming',
   description: 'An elite, high-performance media streaming platform.',
 };
 
@@ -20,8 +21,13 @@ export const metadata = {
  * The root layout. It orchestrates the Navbar, Page Transitions, and font loading.
  */
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const nonce = headers().get('x-nonce') || "";
+
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${fredokaOne.variable} ${creepster.variable} ${orbitron.variable} ${playfairDisplay.variable}`}>
+       <head>
+        <script nonce={nonce} />
+      </head>
       <body className="bg-gray-950 text-white">
         <ResponsiveLayout>
           <PageTransition>
