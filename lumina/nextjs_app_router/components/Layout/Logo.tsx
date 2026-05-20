@@ -10,7 +10,7 @@ const pathVariants = {
 };
 
 /**
- * The main Luminaa2 logo. Inline SVG for theme-aware color morphing and animation.
+ * The main Lumina logo. Inline SVG for theme-aware color morphing and animation.
  */
 export const Logo = () => {
     return (
