@@ -14,8 +14,13 @@ export const Magnetic = ({ children }: { children: React.ReactNode }) => {
         if (ref.current) {
             const { clientX, clientY } = e;
             const { height, width, left, top } = ref.current.getBoundingClientRect();
-            const x = clientX - (left + width / 2);
-            const y = clientY - (top + height / 2);
+            
+            const middleX = left + width / 2;
+            const middleY = top + height / 2;
+            
+            const x = clientX - middleX;
+            const y = clientY - middleY;
+
             setPosition({ x, y });
         }
     };
