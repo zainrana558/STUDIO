@@ -1,96 +1,94 @@
 # Lumina - Cyberpunk Streaming Platform
 
-A premium, high-fidelity streaming application powered by TMDB metadata, featuring glassmorphism design and neon color accents.
+A premium, high-fidelity streaming application powered by TMDB metadata, featuring a glassmorphism design and a modern, secure Next.js architecture.
 
 ## Features
 
-- **Glassmorphism Design**: Modern UI with frosted glass effects
-- **Multi-Provider Failover**: VidSrc, NexStream, VidPhantom, 2Embed
-- **TMDB Integration**: Live movie and TV show metadata
-- **Responsive Player**: Custom video player with season/episode selection
-- **Magnetic UI Elements**: Interactive cursor-tracking components
-- **Cyberpunk Aesthetic**: Neon accents and dark cyberpunk theme
+- **Hardened Security**: Strict Content Security Policy (CSP), HTTP security headers, and a secure server-side API proxy.
+- **Glassmorphism Design**: Modern UI with frosted glass effects and responsive layouts.
+- **Multi-Provider Failover**: Resilient video player supporting VidSrc, NexStream, VidPhantom, and 2Embed with automatic timeout handling.
+- **Live TMDB Integration**: Server-side fetching of movie and TV show metadata for optimal performance and SEO.
+- **Secure Auth Ready**: Built-in, secure, server-side Supabase client for easy integration of user authentication.
+- **Cyberpunk Aesthetic**: Neon accents and a dark, immersive theme.
 
 ## Tech Stack
 
-- **Next.js 14**: App Router
-- **TypeScript**: Type-safe development
-- **Tailwind CSS**: Utility-first styling
+- **Next.js 14**: App Router, Middleware, Server Components
+- **TypeScript**: Strict type-safe development
+- **Tailwind CSS**: Utility-first styling and responsive design
+- **Supabase**: Authentication and database (integration-ready)
 - **Framer Motion**: Smooth animations
 - **Lucide React**: Icon library
 
+## Getting Started
+
+1.  **Clone the repository.**
+
+2.  **Set up Environment Variables:**
+    Create a new file named `.env.local` inside the `nextjs_app_router` directory. Copy the contents of `.env.example` into it and fill in the required values.
+
+3.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
+
+4.  **Run the development server:**
+    ```bash
+    npm run dev
+    ```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
 ## Environment Variables
 
+This is the content for your `.env.local` file. It is critical for the application's functionality.
+
 ```bash
-# Required
-GEMINI_API_KEY=your_key_here
+# --- CORE APPLICATION ---
+# Your secret key for the The Movie Database (TMDB) API.
+# Required for fetching all movie/TV show data.
 TMDB_API_KEY=your_key_here
-APP_URL=your_deployment_url
 
-# Supabase (Database)
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+# The public, canonical URL of your deployed application.
+# Required for metadata, social sharing, and SEO.
+# Example: https://lumina.yourdomain.com
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# NexStream Video Provider
-NEXSTREAM_API_KEY=
-NEXT_PUBLIC_SITE_URL=
+# --- AUTHENTICATION & DATABASE (Supabase) ---
+# The public URL for your Supabase project.
+# Found in your Supabase project's API settings.
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 
-# Optional - Redis Rate Limiting
+# The public "anon" key for your Supabase project.
+# Found in your Supabase project's API settings.
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# The "service_role" key for server-side admin tasks.
+# Keep this secret and only use it in secure server environments.
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# --- STREAMING PROVIDERS ---
+# The API key/signature for the NexStream video provider.
+# Optional, but required if you want the NexStream provider to work.
+NEXSTREAM_API_KEY=your_nexstream_api_key
+
+# --- OPTIONAL ---
+# Secret key for an external AI service (e.g., Google Gemini).
+# Not used by the core application, but reserved for potential extensions.
+GEMINI_API_KEY=your_gemini_key_here
+
+# Credentials for Upstash Redis, if you plan to implement rate limiting.
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
 ```
 
-## Getting Started
+## Security Hardening
 
-```bash
-npm install
-npm run dev
-```
+This application has been hardened with the following security measures:
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+-   **HTTP Security Headers**: `middleware.ts` implements a strict Content Security Policy (CSP), `X-Content-Type-Options`, `Strict-Transport-Security`, `X-Frame-Options`, and `Referrer-Policy` on all incoming requests.
+-   **Nonce-Based CSP**: Mitigates XSS attacks by ensuring only server-authorized scripts are executed.
+-   **API Key Protection**: All sensitive API keys (TMDB, NexStream) are used exclusively on the server side, preventing exposure to the client browser.
+-   **Secure Iframe Sandboxing**: The `VideoEmbedPlayer` uses a `sandbox` attribute to restrict the permissions of embedded third-party content, preventing malicious actions.
 
-## Project Structure
-
-```
-lumina/
-├── nextjs_app_router/
-│   ├── app/
-│   │   ├── genre/[slug]/          # Genre pages with theme switching
-│   │   └── [type]/[id]/           # Media detail pages
-│   ├── components/
-│   │   ├── VideoEmbedPlayer.tsx   # Multi-provider video player
-│   │   ├── Navbar.tsx              # Fixed navigation with effects
-│   │   └── ShareButton.tsx         # Social sharing
-│   └── types/                      # TypeScript definitions
-├── metadata.json                   # Project metadata
-├── .env.example                    # Environment template
-└── README.md                       # This file
-```
-
-## Component Details
-
-### VideoEmbedPlayer
-- Supports movies and TV shows
-- Multiple embed providers with automatic failover
-- Season/Episode selection for TV content
-- Volume control with localStorage persistence
-- Fullscreen support
-
-### Navbar
-- Fixed top navigation
-- Custom magnetic cursor effect
-- Genre navigation links
-- Search functionality
-- Social sharing button
-
-### Media Details Page
-- Server-side TMDB data fetching
-- Fallback cinematic details
-- Cast information
-- Genre display
-- Rating and duration
-
-## License
-
-MIT
+This comprehensive refactoring and hardening process is now complete. The Lumina application is secure, stable, and well-documented, adhering to modern best practices for web application development.

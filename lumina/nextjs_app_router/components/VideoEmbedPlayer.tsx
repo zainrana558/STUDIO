@@ -1,365 +1,216 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { 
-  Play, 
-  Server, 
-  Tv, 
-  CheckCircle, 
-  AlertTriangle, 
-  Loader2, 
-  Layers, 
-  Maximize, 
-  Minimize,
-  Sparkles,
-  ChevronRight,
-  Volume2,
-  Volume1,
-  VolumeX
-} from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
-import { MediaDetails } from "../types/media";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import { Loader2, AlertTriangle, Layers, CheckCircle, Maximize, Minimize, Tv } from "lucide-react";
+import { MediaDetails } from "../../../types/media";
 
+// --- Configuration ---
+const PROVIDER_TIMEOUT_MS = 12000; // 12 seconds to wait for a provider to load
+const EMBED_PROVIDERS = [
+  { key: "vidsrc", name: "VidSrc (Primary)" },
+  { key: "nexstream", name: "NexStream (API)" },
+  { key: "vidphantom", name: "VidPhantom (Legacy)" },
+  { key: "2embed", name: "2Embed (Legacy)" },
+];
+
+// --- Types ---
 interface VideoEmbedPlayerProps {
   id: number;
   media_type: "movie" | "tv";
   details?: MediaDetails | null;
 }
 
-interface EmbedProvider {
-  name: string;
-  url: string;
+type PlayerStatus = 'loading' | 'loaded' | 'error';
+interface PlayerState {
+  status: PlayerStatus;
+  message: string;
 }
 
-export const VideoEmbedPlayer: React.FC<VideoEmbedPlayerProps> = ({ id, media_type, details }) => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [selectedProviderIdx, setSelectedProviderIdx] = useState(0);
-
-  // TV show specific grids
-  const isTv = media_type === "tv";
-  const numSeasons = details?.number_of_seasons || 1;
-  const numEpisodes = details?.number_of_episodes || 10;
-
-  const [currentSeason, setCurrentSeason] = useState(1);
-  const [currentEpisode, setCurrentEpisode] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // Volume state persistence with graceful errors
-  const [volume, setVolume] = useState<number>(() => {
+// --- Custom Hooks ---
+function usePersistentState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [state, setState] = useState<T>(() => {
     try {
-      const saved = localStorage.getItem("lumina-player-volume");
-      return saved ? Number(saved) : 80;
+      if (typeof window === 'undefined') return defaultValue;
+      const storedValue = localStorage.getItem(key);
+      return storedValue ? JSON.parse(storedValue) : defaultValue;
     } catch {
-      return 80;
+      return defaultValue;
     }
   });
 
-  const [isMuted, setIsMuted] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem("lumina-player-muted");
-      return saved === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  const [prevVolume, setPrevVolume] = useState<number>(80);
-
-  const handleMuteToggle = () => {
-    if (isMuted) {
-      setIsMuted(false);
-      try {
-        localStorage.setItem("lumina-player-muted", "false");
-      } catch {}
-    } else {
-      setPrevVolume(volume);
-      setIsMuted(true);
-      try {
-        localStorage.setItem("lumina-player-muted", "true");
-      } catch {}
-    }
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = Number(e.target.value);
-    setVolume(val);
-    if (val > 0 && isMuted) {
-      setIsMuted(false);
-      try {
-        localStorage.setItem("lumina-player-muted", "false");
-      } catch {}
-    }
-    try {
-      localStorage.setItem("lumina-player-volume", String(val));
-    } catch {}
-  };
-
-  // Failover architecture URL mapping
-  const getProviders = (): EmbedProvider[] => {
-    const s = String(currentSeason);
-    const e = String(currentEpisode);
-    return [
-      {
-        name: "VidSrc (Primary)",
-        url: media_type === "movie"
-          ? `https://vidsrc.to/embed/movie/${id}`
-          : `https://vidsrc.to/embed/tv/${id}/${s}/${e}`
-      },
-      {
-        name: "NexStream (Failover A)",
-        url: media_type === "movie"
-          ? `https://nexstream.site/embed/movie/${id}?signature=lumina_prod_secure_key_5521&ref=lumina`
-          : `https://nexstream.site/embed/tv/${id}/${s}/${e}?signature=lumina_prod_secure_key_5521&ref=lumina`
-      },
-      {
-        name: "VidPhantom (Failover B)",
-        url: media_type === "movie"
-          ? `https://vidphantom.com/embed/movie/${id}`
-          : `https://vidphantom.com/embed/tv/${id}/${s}/${e}`
-      },
-      {
-        name: "2Embed (Failover C)",
-        url: media_type === "movie"
-          ? `https://www.2embed.cc/embed/${id}`
-          : `https://www.2embed.cc/embed_tv?id=${id}&s=${s}&e=${e}&season=${s}&episode=${e}`
-      }
-    ];
-  };
-
-  const providers = getProviders();
-  const activeUrl = providers[selectedProviderIdx]?.url || "";
-
-  // Reset loading whenever episode/server/season changes to prevent flash-of-unrendered-states
   useEffect(() => {
-    setLoading(true);
-    setError(false);
-  }, [currentSeason, currentEpisode, selectedProviderIdx, id, media_type]);
+    try {
+      localStorage.setItem(key, JSON.stringify(state));
+    } catch (error) {
+      console.warn(`Error saving to localStorage key "${key}":`, error);
+    }
+  }, [key, state]);
 
-  const handleProviderSwap = (idx: number) => {
-    setSelectedProviderIdx(idx);
-  };
+  return [state, setState];
+}
+
+
+export const VideoEmbedPlayer: React.FC<VideoEmbedPlayerProps> = ({ id, media_type, details }) => {
+  // --- State Management ---
+  const [playerState, setPlayerState] = useState<PlayerState>({ status: "loading", message: "Initializing..." });
+  const [selectedProviderKey, setSelectedProviderKey] = usePersistentState("lumina-player-provider", EMBED_PROVIDERS[0].key);
+  const [currentSeason, setCurrentSeason] = usePersistentState(`lumina-player-season-${id}`, 1);
+  const [currentEpisode, setCurrentEpisode] = usePersistentState(`lumina-player-episode-${id}`, 1);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const isTv = media_type === "tv";
+  const selectedProviderName = EMBED_PROVIDERS.find((p) => p.key === selectedProviderKey)?.name || "Unknown";
+
+  // --- Memos and Callbacks ---
+  const activeUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      media_type,
+      provider: selectedProviderKey,
+    });
+    if (isTv) {
+      params.set("s", String(currentSeason));
+      params.set("e", String(currentEpisode));
+    }
+    return `/api/embed/${id}?${params.toString()}`;
+  }, [id, media_type, selectedProviderKey, isTv, currentSeason, currentEpisode]);
 
   const handleFullscreenToggle = () => {
-    const container = document.getElementById("lumina-embedded-player-container");
-    if (!container) return;
+    const elem = document.getElementById("lumina-embedded-player-container");
+    if (!elem) return;
 
     if (!document.fullscreenElement) {
-      container.requestFullscreen()
-        .then(() => setIsFullscreen(true))
-        .catch((err) => console.warn("Fullscreen permission blocked inside sandbox context", err));
+      elem.requestFullscreen().catch((err) => console.warn(`Fullscreen request failed: ${err.message}`));
     } else {
       document.exitFullscreen();
-      setIsFullscreen(false);
     }
   };
+  
+  const handleIframeLoad = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setPlayerState({ status: 'loaded', message: 'Stream loaded successfully.' });
+  };
+  
+  const handleIframeError = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setPlayerState({ status: 'error', message: `The provider failed to load the resource. This may be a network issue or a problem with the provider.` });
+  };
+
+  const handleSeasonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCurrentSeason(Number(e.target.value));
+    setCurrentEpisode(1); // Reset to first episode of new season
+  };
+  
+  const handleEpisodeClick = (episodeNumber: number) => {
+    setCurrentEpisode(episodeNumber);
+  };
+
+  // --- Effects ---
+  useEffect(() => {
+    setPlayerState({ status: "loading", message: `Connecting via ${selectedProviderName}...` });
+
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+        setPlayerState({ status: 'error', message: `Provider Timeout: ${selectedProviderName} took too long to respond. Please try another provider.` });
+    }, PROVIDER_TIMEOUT_MS);
+
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [activeUrl, selectedProviderName]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
+
+  const seasons = details?.seasons?.filter(s => s.season_number > 0); // Exclude "Specials"
+  const episodes = seasons?.find(s => s.season_number === currentSeason)?.episode_count;
 
   return (
-    <div className="flex flex-col gap-6 w-full select-none">
-      
-      {/* 1. Outer stage container with cinema vibes */}
-      <div 
-        id="lumina-embedded-player-container"
-        className="relative w-full aspect-video rounded-2xl bg-[#080a0e] border border-white/5 overflow-hidden shadow-2xl group"
-      >
+    <div className="flex flex-col gap-4 w-full select-none">
+      <div id="lumina-embedded-player-container" className="relative w-full aspect-video rounded-lg bg-black border border-white/10 overflow-hidden shadow-2xl group">
         <iframe
+          key={activeUrl}
           id="lumina-cinema-frame"
           src={activeUrl}
-          title="Luminaa2 Secure Stream Player"
-          className="w-full h-full border-0 absolute inset-0 z-10 transition-opacity duration-350"
-          // Mandatory high-compatibility sandbox
+          title="Lumina Secure Stream Player"
+          className="w-full h-full border-0 absolute inset-0 z-10 bg-black"
+          frameBorder="0"
           sandbox="allow-scripts allow-same-origin allow-forms allow-presentation allow-pointer-lock"
           allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
-          frameBorder="0"
-          onLoad={() => setLoading(false)}
-          onError={() => setError(true)}
+          onLoad={handleIframeLoad}
+          onError={handleIframeError}
         />
-
-        {/* Dynamic Loading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center gap-3.5 z-20">
-            <Loader2 className="w-9 h-9 text-rose-500 animate-spin" />
-            <div className="text-center font-mono select-none">
-              <span className="text-xs font-bold text-gray-200 tracking-wider block uppercase">Connecting Bridge Channel...</span>
-              <span className="text-[10px] text-gray-500 block uppercase mt-1">Provider: {providers[selectedProviderIdx]?.name}</span>
+        {playerState.status === "loading" && (
+          <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center gap-4 z-20 transition-opacity duration-300">
+            <Loader2 className="w-10 h-10 text-rose-500 animate-spin" />
+            <div className="text-center font-mono">
+              <p className="text-sm font-bold text-gray-200 tracking-wider uppercase">Establishing Secure Link</p>
+              <p className="text-xs text-gray-500 mt-1">{playerState.message}</p>
             </div>
           </div>
         )}
-
-        {/* Connection Failure Error screen */}
-        {error && (
-          <div className="absolute inset-0 bg-[#090b0e] flex flex-col items-center justify-center p-6 text-center gap-4 z-20">
-            <AlertTriangle className="w-10 h-10 text-rose-500 animate-pulse" />
-            <div className="max-w-md">
-              <h3 className="text-sm font-bold font-mono text-white uppercase tracking-widest">Stream Synch Decoupled</h3>
-              <p className="text-xs text-gray-400 mt-1">
-                The targeted embed address could not be linked securely. Swap to an alternate failover provider index below or retry link nodes.
-              </p>
+        {playerState.status === "error" && (
+          <div className="absolute inset-0 bg-gradient-to-br from-red-950 to-black flex flex-col items-center justify-center p-4 text-center gap-4 z-20">
+            <AlertTriangle className="w-12 h-12 text-amber-500" />
+            <div>
+              <h3 className="text-lg font-bold font-mono text-white uppercase tracking-widest">Stream Unavailable</h3>
+              <p className="text-sm text-gray-300 mt-2 max-w-md">{playerState.message}</p>
             </div>
-            <button 
-              onClick={() => { setLoading(true); setError(false); }}
-              className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 font-mono text-xs font-bold rounded-lg text-white transition-all active:scale-95 cursor-pointer"
-            >
-              Force Node Retry
-            </button>
+            <p className="text-xs text-gray-500 font-mono">SELECT A DIFFERENT PROVIDER BELOW</p>
           </div>
         )}
-
-        {/* Minimal Float HUD Controls */}
-        <div className="absolute top-4 left-4 right-4 z-15 flex justify-between pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-300">
-          <div className="px-3 py-1.5 rounded-lg bg-black/85 border border-white/10 flex items-center gap-1.5 backdrop-blur-md">
-            <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-            <span className="text-[9px] text-gray-300 font-mono font-bold uppercase tracking-wider">
-              {isTv ? `Season ${currentSeason} : Episode ${currentEpisode}` : "Movie Projection"}
+        <div className="absolute top-3 left-3 right-3 z-30 flex justify-between items-center pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="px-3 py-1.5 rounded-lg bg-black/70 border border-white/10 backdrop-blur-sm">
+            <span className="text-xs text-gray-200 font-mono font-bold uppercase tracking-wider">
+              {isTv ? `S${String(currentSeason).padStart(2, '0')} E${String(currentEpisode).padStart(2, '0')}` : "Movie"}
             </span>
           </div>
-
-          <button 
-            type="button"
-            onClick={handleFullscreenToggle}
-            className="p-1.5 rounded-lg bg-black/85 border border-white/10 hover:border-white/20 text-gray-400 hover:text-white transition-all backdrop-blur-md pointer-events-auto cursor-pointer"
-            title="Cinema Fullscreen Mode"
-          >
-            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+          <button onClick={handleFullscreenToggle} className="p-2.5 rounded-full bg-black/70 border border-white/10 backdrop-blur-sm text-gray-200 hover:text-white pointer-events-auto">
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
           </button>
-        </div>
-
-        {/* Floating Bottom HUD Player HUD with Volume Controls */}
-        <div className="absolute bottom-4 left-4 right-4 z-15 flex justify-between items-center pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-300">
-          {/* Bottom Left: Audio Feedback Indicator */}
-          <div className="px-3 py-1.5 rounded-lg bg-black/85 border border-white/10 flex items-center gap-1.5 backdrop-blur-md pointer-events-auto">
-            <span className="text-[9px] text-gray-400 font-mono tracking-wider font-bold uppercase">
-              AUDIO PREFERENCES
-            </span>
-          </div>
-
-          {/* Bottom Right: Interactive Volume Deck */}
-          <div className="px-3 py-1.5 rounded-lg bg-black/85 border border-white/10 flex items-center gap-2.5 backdrop-blur-md pointer-events-auto shadow-xl">
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={handleMuteToggle}
-                className="text-gray-400 hover:text-white transition-colors cursor-pointer p-0.5 focus:outline-none"
-                title={isMuted ? "Unmute Sound" : "Mute Sound"}
-              >
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="w-4 h-4 text-rose-500" />
-                ) : volume <= 50 ? (
-                  <Volume1 className="w-4 h-4 text-rose-400" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-rose-500" />
-                )}
-              </button>
-
-              <div className="relative flex items-center w-16 sm:w-24">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className="w-full h-1 rounded-lg appearance-none cursor-pointer focus:outline-none accent-rose-500"
-                  style={{
-                    background: `linear-gradient(to right, #f43f5e 0%, #f43f5e ${isMuted ? 0 : volume}%, rgba(255, 255, 255, 0.2) ${isMuted ? 0 : volume}%, rgba(255, 255, 255, 0.2) 100%)`
-                  }}
-                  title={`Volume: ${isMuted ? 0 : volume}%`}
-                />
-              </div>
-
-              <span className="text-[10px] text-gray-300 font-mono font-bold w-8 text-right shrink-0">
-                {isMuted ? "0" : volume}%
-              </span>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* 2. Failover Selector & Interactive Provider Deck */}
-      <div className="flex flex-col gap-3 py-1 border-t border-b border-white/5 bg-gray-950/10 p-4 rounded-xl">
-        <span className="text-[10px] text-gray-500 font-mono uppercase tracking-widest text-left flex items-center gap-1.5 font-bold">
-          <Server className="w-3.5 h-3.5 text-rose-500" />
-          Active Bridge Signatures (Failover Servers)
-        </span>
+      <div className="p-4 bg-gray-950/70 border border-white/10 rounded-lg backdrop-blur-xl">
+        <h3 className="text-xs text-gray-400 font-mono uppercase tracking-widest flex items-center gap-2 font-bold mb-3">Stream Providers (Failovers)</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-          {providers.map((prov, idx) => (
-            <button
-              key={prov.name}
-              onClick={() => handleProviderSwap(idx)}
-              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-[11px] font-mono transition-all duration-300 cursor-pointer ${
-                selectedProviderIdx === idx
-                  ? "bg-rose-500/10 border-rose-500/40 text-rose-400 font-bold"
-                  : "bg-white/5 border-white/5 text-gray-400 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              {selectedProviderIdx === idx ? (
-                <CheckCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-              ) : (
-                <Layers className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-              )}
-              <span className="truncate">{prov.name}</span>
+          {EMBED_PROVIDERS.map(({ key, name }) => (
+            <button key={key} onClick={() => setSelectedProviderKey(key)} className={`flex items-center justify-center text-center gap-2.5 px-3 py-2.5 rounded-md border text-xs font-mono transition-all duration-200 ${selectedProviderKey === key ? "bg-rose-500/15 border-rose-500/60 text-rose-300 font-bold shadow-lg shadow-rose-950/50" : "bg-white/5 border-transparent text-gray-400 hover:border-white/20 hover:text-white"}`}>
+              {selectedProviderKey === key ? <CheckCircle className="w-4 h-4 text-rose-400 flex-shrink-0" /> : <Layers className="w-4 h-4 text-gray-600 flex-shrink-0" />}
+              <span className="truncate">{name}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* 3. Reactive Season Tabs & Interactive Episode Index Grid */}
-      {isTv && (
-        <div className="flex flex-col gap-3.5 p-5 bg-[#0e1116]/80 rounded-2xl border border-white/5 text-left">
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/5 pb-3">
-            <div className="flex items-center gap-2">
-              <Tv className="w-4.5 h-4.5 text-rose-500" />
-              <h4 className="text-xs font-bold font-mono text-white uppercase tracking-wider">
-                Episodic Grid Directory
-              </h4>
+      {isTv && seasons && seasons.length > 0 && (
+        <div className="p-4 bg-gray-950/70 border border-white/10 rounded-lg">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-shrink-0">
+                <label htmlFor="season-select" className="text-xs text-gray-400 font-mono uppercase tracking-widest flex items-center gap-2 font-bold mb-3">Season</label>
+                <select id="season-select" value={currentSeason} onChange={handleSeasonChange} className="w-full bg-black/30 border border-white/10 rounded-md px-3 py-2 text-white font-mono focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    {seasons.map(season => (
+                        <option key={season.id} value={season.season_number}>{season.name}</option>
+                    ))}
+                </select>
             </div>
-
-            {/* Quick Season Deck Dropdown */}
-            <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg px-2 py-1">
-              <span className="text-[9px] text-gray-500 font-mono uppercase tracking-wider font-bold">Season:</span>
-              <select
-                value={currentSeason}
-                onChange={(e) => {
-                  setCurrentSeason(Number(e.target.value));
-                  setCurrentEpisode(1); // auto cycle back to ep 1 on scale shift
-                }}
-                className="bg-transparent border-0 font-mono text-xs font-bold text-rose-400 outline-none cursor-pointer focus:ring-0 pr-1"
-              >
-                {Array.from({ length: numSeasons }, (_, idx) => (
-                  <option key={idx + 1} value={idx + 1} className="bg-[#0c0d12] text-white font-mono">
-                    Season {idx + 1}
-                  </option>
-                ))}
-              </select>
+            <div className="flex-grow">
+                <h3 className="text-xs text-gray-400 font-mono uppercase tracking-widest flex items-center gap-2 font-bold mb-3">Episodes</h3>
+                <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2 max-h-60 overflow-y-auto pr-2">
+                    {Array.from({ length: episodes || 0 }, (_, i) => i + 1).map(episodeNumber => (
+                        <button key={episodeNumber} onClick={() => handleEpisodeClick(episodeNumber)} className={`aspect-square rounded-md text-xs font-mono transition-all ${currentEpisode === episodeNumber ? 'bg-rose-500 text-white font-bold' : 'bg-black/30 text-gray-300 hover:bg-white/10'}`}>
+                            {episodeNumber}
+                        </button>
+                    ))}
+                </div>
             </div>
-          </div>
-
-          {/* Staggered Episode cards mapped using smooth spring transforms */}
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-[170px] overflow-y-auto pr-1">
-            {Array.from({ length: Math.ceil(numEpisodes / numSeasons) }, (_, i) => {
-              const epNum = i + 1;
-              const isCurrent = currentEpisode === epNum;
-              return (
-                <motion.button
-                  key={epNum}
-                  onClick={() => setCurrentEpisode(epNum)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className={`py-2 rounded-xl border font-mono transition-all text-center flex flex-col justify-center items-center cursor-pointer ${
-                    isCurrent
-                      ? "bg-gradient-to-tr from-rose-500/20 to-purple-550/15 border-rose-500 text-white font-black"
-                      : "bg-white/2 border-white/5 text-gray-400 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  <span className="text-[8px] text-gray-500 uppercase leading-none mb-0.5 font-bold">EP</span>
-                  <span className="text-xs leading-none">{epNum}</span>
-                </motion.button>
-              );
-            })}
           </div>
         </div>
       )}
-
     </div>
   );
 };
