@@ -1,7 +1,7 @@
 
 import { Media, MediaListResponse } from '../types/media';
 
-const API_KEY = process.env.TMDB_API_KEY;
+const API_ACCESS_TOKEN = process.env.TMDB_API_ACCESS_TOKEN;
 const BASE_URL = 'https://api.themoviedb.org/3';
 
 const genreMap = {
@@ -13,8 +13,23 @@ const genreMap = {
 };
 
 async function fetchTMDB(endpoint: string, params: string = ''): Promise<any> {
-    const url = `${BASE_URL}/${endpoint}?api_key=${API_KEY}&${params}`;
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    if (!API_ACCESS_TOKEN) {
+        console.error('Error: TMDB_API_ACCESS_TOKEN is not configured in your environment variables.');
+        return null;
+    }
+
+    const url = `${BASE_URL}/${endpoint}?${params}`;
+    const options = {
+        method: 'GET',
+        headers: {
+            accept: 'application/json',
+            Authorization: `Bearer ${API_ACCESS_TOKEN}`
+        },
+        next: { revalidate: 3600 } // Cache for 1 hour
+    };
+
+    const res = await fetch(url, options);
+    
     if (!res.ok) {
         console.error(`Failed to fetch from TMDB: ${res.statusText}`);
         return null;
