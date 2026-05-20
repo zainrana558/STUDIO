@@ -1,8 +1,9 @@
+
 "use client";
 
 import React, { createContext, useContext, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { themes, getThemeById, Theme } from '../lib/themes';
+import { themes, Theme } from '../lib/themes';
 
 interface ThemeContextType {
   theme: Theme;
@@ -24,14 +25,27 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const activeTheme = useMemo(() => {
     const pathSegments = pathname.split('/').filter(Boolean);
     if (pathSegments[0] === 'genre' && pathSegments[1]) {
-      return getThemeById(pathSegments[1]);
+        return themes[pathSegments[1] as keyof typeof themes] || themes.default;
     }
-    // Here you could add more logic to determine theme from media details on [type]/[id] pages
     return themes.default;
   }, [pathname]);
+  
+  const themeCSS = useMemo(() => {
+    if (!activeTheme) return '';
+    const cssVars = {
+        '--color-primary': activeTheme.colors.primary,
+        '--color-secondary': activeTheme.colors.secondary,
+        '--color-accent': activeTheme.colors.accent,
+        '--font-display': activeTheme.fonts.display,
+        '--font-body': activeTheme.fonts.body,
+    };
+    return `:root { ${Object.entries(cssVars).map(([key, value]) => `${key}: ${value};`).join(' ')} }`;
+  }, [activeTheme]);
+
 
   return (
     <ThemeContext.Provider value={{ theme: activeTheme }}>
+      <style dangerouslySetInnerHTML={{ __html: themeCSS }} />
       {children}
     </ThemeContext.Provider>
   );
