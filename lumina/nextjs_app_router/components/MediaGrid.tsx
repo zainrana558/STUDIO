@@ -15,3 +15,4 @@ export const MediaGrid = ({ media, mediaType }: MediaGridProps) => {
     </div>
   );
 };
+ 
