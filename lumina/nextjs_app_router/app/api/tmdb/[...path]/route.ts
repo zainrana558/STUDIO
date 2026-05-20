@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
 
-// A highly-specific allowlist of API endpoints that we want to proxy.
-// This is a security measure to prevent abuse of the proxy.
+import { NextRequest, NextResponse } from "next/server";
+import { Ratelimit } from "@upstash/ratelimit";
+import { kv } from "@vercel/kv";
+
 const ALLOWED_PATHS = [
   /^search\/multi$/,
   /^trending\/all\/week$/,
@@ -9,9 +10,15 @@ const ALLOWED_PATHS = [
   /^tv\/[0-9]+$/,
 ];
 
-// Helper function to check if a given path is in our allowlist.
-// This is more complex than a simple array lookup because we need
-// to support dynamic paths like /movie/123, so we use regex.
+const ratelimit = new Ratelimit({
+  redis: kv,
+  // 5 requests from the same IP in 10 seconds
+  limiter: Ratelimit.build_sliding_window_limiter({
+    limit: 5,
+    window: "10s",
+  }),
+});
+
 function isAllowed(path: string) {
   return ALLOWED_PATHS.some((regex) => regex.test(path));
 }
@@ -22,6 +29,18 @@ export async function GET(
 ) {
   const path = params.path.join("/");
   const { searchParams } = new URL(request.url);
+  const ip = request.ip ?? "127.0.0.1";
+
+  const { success, pending, limit, reset, remaining } = await ratelimit.limit(
+    `ratelimit_tmdb_${ip}`
+  );
+
+  if (!success) {
+    return NextResponse.json(
+      { message: "Too many requests. Please try again later." },
+      { status: 429, statusText: "Too Many Requests" }
+    );
+  }
 
   if (!isAllowed(path)) {
     return NextResponse.json(
@@ -38,9 +57,6 @@ export async function GET(
     );
   }
 
-  // We need to reconstruct the query string, but without the Next.js-
-  // specific `path` parameter. This is safe because we've already
-  // validated the path against our allowlist.
   const queryString = Array.from(searchParams.entries())
     .map(([key, value]) => `${key}=${value}`)
     .join("&");
@@ -52,15 +68,10 @@ export async function GET(
       headers: {
         "Content-Type": "application/json",
       },
-      // Note: We are deliberately not revalidating this at the proxy 
-      // level, but at the page level. This is because the proxy is a 
-      // generic endpoint, and we want to allow different pages to have 
-      // different revalidation strategies.
     });
 
     if (!tmdbResponse.ok) {
       const errorBody = await tmdbResponse.json();
-      console.error(`[TMDB PROXY] Error from TMDB API for ${path}:`, errorBody);
       return NextResponse.json(errorBody, {
         status: tmdbResponse.status,
         statusText: tmdbResponse.statusText,
@@ -70,7 +81,6 @@ export async function GET(
     const data = await tmdbResponse.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error(`[TMDB PROXY] Internal error for ${path}:`, error);
     const message =
       error instanceof Error ? error.message : "An unknown error occurred.";
     return NextResponse.json(

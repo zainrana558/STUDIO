@@ -1,6 +1,14 @@
+
 import { NextRequest, NextResponse } from 'next/server';
+import { Ratelimit } from "@upstash/ratelimit";
+import { kv } from "@vercel/kv";
 
 type ProviderBuilder = (params: { id: string; s?: string; e?: string }) => string;
+
+const ratelimit = new Ratelimit({
+  redis: kv,
+  limiter: Ratelimit.build_sliding_window_limiter({ limit: 10, window: "10s" }),
+});
 
 const providerUrlMap: Record<string, ProviderBuilder> = {
   vidsrc: ({ id, s, e }) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
@@ -9,7 +17,6 @@ const providerUrlMap: Record<string, ProviderBuilder> = {
   vidphantom_movie: ({ id }) => `https://vidphantom.com/embed/movie/${id}`,
   '2embed': ({ id, s, e }) => `https://www.2embed.cc/embed_tv?id=${id}&s=${s}&e=${e}`,
   '2embed_movie': ({ id }) => `https://www.2embed.cc/embed/${id}`,
-  // CORRECTED: Using NEXSTREAM_API_KEY to match documentation
   nexstream: ({ id, s, e }) => `https://nexstream.site/embed/tv/${id}/${s}/${e}?signature=${process.env.NEXSTREAM_API_KEY}&ref=lumina`,
   nexstream_movie: ({ id }) => `https://nexstream.site/embed/movie/${id}?signature=${process.env.NEXSTREAM_API_KEY}&ref=lumina`,
 };
@@ -18,6 +25,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const ip = request.ip ?? "127.0.0.1";
+  const { success } = await ratelimit.limit(`ratelimit_embed_${ip}`);
+
+  if (!success) {
+    return new NextResponse('Too many requests', { status: 429 });
+  }
+
   const { searchParams } = new URL(request.url);
   const mediaType = searchParams.get('media_type');
   const provider = searchParams.get('provider');
@@ -29,10 +43,8 @@ export async function GET(
     return new NextResponse('Missing required parameters: id, media_type, provider', { status: 400 });
   }
   
-  // Key for NexStream validation, aligns with corrected environment variable
   if (provider === 'nexstream' && !process.env.NEXSTREAM_API_KEY) {
      console.error('FATAL: NEXSTREAM_API_KEY is not set in environment variables.');
-     // Return a generic error to the client to avoid leaking configuration details
      return new NextResponse('Internal Server Configuration Error', { status: 500 });
   }
 
@@ -43,8 +55,15 @@ export async function GET(
     return new NextResponse(`Invalid provider: ${provider}`, { status: 400 });
   }
 
-  const embedUrl = builder({ id, s: season, e: episode });
-
-  // Redirect to the final embed URL
-  return NextResponse.redirect(embedUrl);
+  try {
+    const embedUrl = builder({ id, s: season, e: episode });
+    return NextResponse.redirect(embedUrl, { status: 301 });
+  } catch (error) {
+      console.error(`[EMBED_REDIRECT_ERROR] for provider ${provider}:`, error);
+      const message = error instanceof Error ? error.message : "An unknown error occurred during URL construction.";
+      return new NextResponse(JSON.stringify({ message: "Failed to construct embed URL.", error: message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+      });
+  }
 }
