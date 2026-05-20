@@ -62,7 +62,7 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                         className="w-full h-full absolute top-0 left-0"
                         frameBorder="0"
                         allowFullScreen
-                        sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-top-navigation"
+                        sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts"
                     />
                 </AnimatePresence>
             </div>
