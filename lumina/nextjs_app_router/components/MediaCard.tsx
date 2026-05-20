@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Star } from 'lucide-react';
 import { Media } from '../types/media';
@@ -31,13 +32,15 @@ export const MediaCard = ({ media, mediaType }: MediaCardProps) => {
         }}
         whileHover="hover"
       >
-        {/* Zero-Bandwidth Image with CLS Protection */}
         <div className="aspect-[2/3] bg-gray-900/50">
           {media.poster_path ? (
-            <img
+            <Image
               src={`${TMDB_IMAGE_BASE_URL}${media.poster_path}`}
               alt={title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              layout="fill"
+              objectFit="cover"
+              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
+              className="transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
