@@ -121,3 +121,4 @@ export const themes: Record<Theme['id'], Theme> = {
     styles: { card: { borderRadius: 'rounded-lg' } },
   }
 };
+ 
