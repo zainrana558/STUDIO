@@ -12,16 +12,22 @@ interface MediaRailProps {
 }
 
 /**
- * A horizontal, scrollable rail for displaying a list of media.
+ * A horizontal, scrollable rail for displaying a list of media with a staggered animation effect.
  */
 export const MediaRail = ({ title, items, theme }: MediaRailProps) => {
     const containerVariants = {
-        hidden: {},
+        hidden: { opacity: 0 },
         visible: {
+            opacity: 1,
             transition: {
-                staggerChildren: 0.1, // Stagger the animation of each card
+                staggerChildren: 0.1, // Animate each card with a 0.1s delay
             },
         },
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 }, // Start transparent and slightly down
+        visible: { opacity: 1, y: 0 },   // End opaque and at original position
     };
 
     return (
@@ -35,9 +41,13 @@ export const MediaRail = ({ title, items, theme }: MediaRailProps) => {
                     animate="visible"
                 >
                     {items.map((item) => (
-                        <div key={item.id} className="w-40 md:w-48 flex-shrink-0">
+                        <motion.div
+                            key={item.id}
+                            className="w-40 md:w-48 flex-shrink-0"
+                            variants={itemVariants} // Apply the item animation
+                        >
                             <MediaCard item={item} theme={theme} />
-                        </div>
+                        </motion.div>
                     ))}
                 </motion.div>
             </div>
