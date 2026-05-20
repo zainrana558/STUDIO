@@ -1,4 +1,20 @@
 
+export interface Genre {
+  id: number;
+  name: string;
+}
+
+export interface Video {
+  id: string;
+  iso_639_1: string;
+  iso_3166_1: string;
+  key: string;
+  name: string;
+  site: string;
+  size: number;
+  type: string;
+}
+
 export interface Media {
   id: number;
   title?: string;
@@ -10,6 +26,8 @@ export interface Media {
   media_type?: 'movie' | 'tv';
   overview: string;
   vote_average: number;
+  genres: Genre[];
+  videos: { results: Video[] };
 }
 
 export interface MediaListResponse {
@@ -17,39 +35,4 @@ export interface MediaListResponse {
     results: Media[];
     total_pages: number;
     total_results: number;
-}
-
-// --- Detailed view interfaces for the player page ---
-
-export interface CastMember {
-    id: number;
-    name: string;
-    character: string;
-    profile_path: string | null;
-}
-
-export interface Genre {
-    id: number;
-    name: string;
-}
-
-export interface Season {
-    id: number;
-    season_number: number;
-    episode_count: number;
-    poster_path: string | null;
-    air_date: string;
-}
-
-export interface MediaDetails extends Media {
-    genres: Genre[];
-    credits: {
-        cast: CastMember[];
-    };
-    // TV-specific
-    seasons?: Season[];
-    number_of_seasons?: number;
-    // Movie-specific
-    runtime?: number;
-    imdb_id?: string;
 }

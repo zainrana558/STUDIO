@@ -2,10 +2,10 @@
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MediaDetails } from '../../types/media';
+import { Media } from '../../types/media';
 
 interface VideoEmbedPlayerProps {
-    media: MediaDetails;
+    media: Media;
 }
 
 const servers = [
@@ -19,9 +19,10 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
     const [activeServer, setActiveServer] = useState(servers[0].key);
     const [activeSeason, setActiveSeason] = useState(1);
     const [activeEpisode, setActiveEpisode] = useState(1);
+    const [isTrailerOpen, setIsTrailerOpen] = useState(false);
 
     const streamUrl = useMemo(() => {
-        const { media_type, id, imdb_id } = media;
+        const { media_type, id } = media;
         
         switch (activeServer) {
             case 'vidsrc':
@@ -33,8 +34,7 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                  if (media_type === 'tv') {
                     return `https://www.2embed.cc/embed_tv?id=${id}&s=${activeSeason}&e=${activeEpisode}`;
                 }
-                return `https://www.2embed.cc/embed/${imdb_id}`;
-             // Fallback for other servers - using TMDB ID as a placeholder
+                return `https://www.2embed.cc/embed/${id}`;
             case 'nexstream':
             case 'vidphantom':
                  if (media_type === 'tv') {
@@ -46,13 +46,14 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
         }
     }, [media, activeServer, activeSeason, activeEpisode]);
 
+    const officialTrailer = media.videos?.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+
     return (
         <div className="w-full">
-            {/* --- Video Player and Controls -- */}
             <div className="aspect-video bg-black relative">
                 <AnimatePresence mode="wait">
                     <motion.iframe
-                        key={streamUrl} // Force re-render on URL change
+                        key={streamUrl}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -66,22 +67,37 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                 </AnimatePresence>
             </div>
 
-            {/* --- Server Selector -- */}
-            <div className="bg-gray-900 p-4 flex flex-wrap items-center justify-center space-x-2">
-                {servers.map(server => (
-                    <button
-                        key={server.key}
-                        onClick={() => setActiveServer(server.key)}
-                        className={`px-4 py-2 text-sm rounded-md transition-colors ${activeServer === server.key ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>
-                        {server.name}
+            <div className="bg-gray-900 p-4 flex flex-wrap items-center justify-between">
+                <div className="flex flex-wrap items-center space-x-2">
+                    {servers.map(server => (
+                        <button
+                            key={server.key}
+                            onClick={() => setActiveServer(server.key)}
+                            className={`px-4 py-2 text-sm rounded-md transition-colors ${activeServer === server.key ? 'bg-red-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                            {server.name}
+                        </button>
+                    ))}
+                </div>
+                {officialTrailer && (
+                    <button 
+                        onClick={() => setIsTrailerOpen(true)}
+                        className='px-4 py-2 text-sm rounded-md bg-yellow-500 hover:bg-yellow-600 text-black transition-colors'>
+                        Watch Trailer
                     </button>
+                )}
+            </div>
+            <div className='p-4'>
+              <div className='flex flex-wrap gap-2'>
+                {media.genres.map((genre) => (
+                  <span key={genre.id} className='px-2 py-1 text-xs rounded-full bg-gray-700'>
+                    {genre.name}
+                  </span>
                 ))}
+              </div>
             </div>
 
-            {/* --- TV Show Episode Selector -- */}
             {media.media_type === 'tv' && media.seasons && (
                 <div className="p-4 md:p-8">
-                    {/* Season Tabs */}
                     <div className="flex space-x-2 border-b border-gray-700 mb-4">
                         {media.seasons.map(season => (
                             <button 
@@ -93,7 +109,6 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                         ))}
                     </div>
                     
-                    {/* Episode Grid */}
                     <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-12 gap-2">
                         {Array.from({ length: media.seasons.find(s => s.season_number === activeSeason)?.episode_count || 0 }, (_, i) => i + 1).map(episode => (
                             <button 
@@ -106,6 +121,29 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                     </div>
                 </div>
             )}
+            
+            <AnimatePresence>
+                {isTrailerOpen && officialTrailer && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+                        onClick={() => setIsTrailerOpen(false)}
+                    >
+                        <div className="aspect-video bg-black w-full max-w-4xl">
+                             <iframe 
+                                 src={`https://www.youtube.com/embed/${officialTrailer.key}?autoplay=1`}
+                                 title={officialTrailer.name}
+                                 frameBorder="0" 
+                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                 allowFullScreen
+                                 className='w-full h-full'
+                             ></iframe>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
