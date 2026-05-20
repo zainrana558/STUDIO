@@ -6,9 +6,9 @@ import Link from 'next/link';
 
 const navLinks = [
     { name: 'Anime', href: '/genre/anime' },
+    { name: 'Cartoons', href: '/genre/cartoons' },
     { name: 'Sci-Fi', href: '/genre/scifi' },
     { name: 'Horror', href: '/genre/horror' },
-    { name: 'Classic', href: '/genre/cinematic_classic' },
 ];
 
 /**
@@ -32,4 +32,3 @@ export const Navbar = () => {
         </header>
     );
 };
- 
