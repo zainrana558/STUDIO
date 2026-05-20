@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { createContext, useContext, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { themes, Theme } from '../lib/themes';
 
@@ -30,22 +29,28 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     return themes.default;
   }, [pathname]);
   
-  const themeCSS = useMemo(() => {
-    if (!activeTheme) return '';
-    const cssVars = {
-        '--color-primary': activeTheme.colors.primary,
-        '--color-secondary': activeTheme.colors.secondary,
-        '--color-accent': activeTheme.colors.accent,
-        '--font-display': activeTheme.fonts.display,
-        '--font-body': activeTheme.fonts.body,
-    };
-    return `:root { ${Object.entries(cssVars).map(([key, value]) => `${key}: ${value};`).join(' ')} }`;
+  useEffect(() => {
+    if (typeof window !== 'undefined' && activeTheme) {
+      const body = document.body;
+
+      const cssVars = {
+          '--color-primary': activeTheme.colors.primary,
+          '--color-secondary': activeTheme.colors.secondary,
+          '--color-accent': activeTheme.colors.accent,
+          '--font-display': activeTheme.fonts.display,
+          '--font-body': activeTheme.fonts.body,
+      };
+
+      Object.entries(cssVars).forEach(([key, value]) => {
+          body.style.setProperty(key, value);
+      });
+
+    }
   }, [activeTheme]);
 
 
   return (
     <ThemeContext.Provider value={{ theme: activeTheme }}>
-      <style dangerouslySetInnerHTML={{ __html: themeCSS }} />
       {children}
     </ThemeContext.Provider>
   );
