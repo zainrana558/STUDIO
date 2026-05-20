@@ -34,3 +34,4 @@ export default async function MediaPage({ params }: MediaPageProps) {
         </div>
     );
 }
+ 
