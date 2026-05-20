@@ -1,0 +1,10 @@
+{
+  "name": "Lumina",
+  "description": "Lumina is a premium, high-fidelity cyberpunk streaming platform powered by TMDB metadata, featuring glassmorphism design, neon color accents, custom media row sliders, an advanced em[...]",
+  "requestFramePermissions": [
+    "fullscreen"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
