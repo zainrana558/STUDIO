@@ -1,8 +1,10 @@
 "use client";
 
 import { motion, useScroll, useTransform } from 'framer-motion';
+import Image from 'next/image'; // <-- Import next/image
 import { Media } from '../../types/media';
 import { Theme } from '../../lib/themes';
+import { Button } from '../UI/Button'; // <-- Import Button component
 
 interface HeroBannerProps {
     media: Media;
@@ -10,24 +12,30 @@ interface HeroBannerProps {
 }
 
 /**
- * A theme-aware hero banner with a parallax scroll effect.
+ * A theme-aware hero banner with a parallax scroll effect, optimized with next/image.
  */
 export const HeroBanner = ({ media, theme }: HeroBannerProps) => {
     const { scrollYProgress } = useScroll();
-    // Create a parallax effect by transforming the y position based on scroll
+    // Create a parallax effect
     const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
 
     return (
-        <div className="h-[80vh] w-full relative overflow-hidden">
-            {/* Background Image with Parallax */}
+        <div className="h-[90vh] w-full relative overflow-hidden" style={{ background: theme.colors.secondary }}>
+            {/* Background Image with Parallax, using next/image */}
             <motion.div className="absolute inset-0 z-0" style={{ y }}>
-                <img
+                <Image
                     src={`https://image.tmdb.org/t/p/original${media.backdrop_path}`}
-                    alt={media.title || media.name || ''}
-                    className="w-full h-full object-cover object-center"
+                    alt={media.title || media.name || 'Hero background'}
+                    layout="fill"
+                    objectFit="cover"
+                    objectPosition="center"
+                    priority // Prioritize loading of this critical image
+                    unoptimized // Required for external image providers like TMDB
                 />
-                {/* Vignette Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-secondary)] via-transparent to-transparent" />
+                {/* Gradient overlay for text readability */}
+                <div 
+                    className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"
+                />
             </motion.div>
 
             {/* Content */}
@@ -45,10 +53,17 @@ export const HeroBanner = ({ media, theme }: HeroBannerProps) => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2, ...theme.motion.bezier }}
-                    className="max-w-2xl text-lg md:text-xl text-gray-200"
+                    className="max-w-3xl text-lg md:text-xl mb-8"
                 >
                     {media.overview}
                 </motion.p>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.4, ...theme.motion.bezier }}
+                >
+                    <Button theme={theme} size="lg">Watch Now</Button>
+                </motion.div>
             </div>
         </div>
     );
