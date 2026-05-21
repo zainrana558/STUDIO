@@ -17,7 +17,7 @@ export function middleware(request: NextRequest) {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "frame-src 'self' https://vidsrc.cc/ https://vidsrc.me/ https://www.2embed.cc/ https://www.youtube.com/",
+    "frame-src 'self' https://vidsrc.cc/ https://vidsrc.to/ https://vidsrc.me/ https://www.2embed.cc/ https://www.youtube.com/",
     "connect-src 'self'",
     "upgrade-insecure-requests",
   ].join('; ');

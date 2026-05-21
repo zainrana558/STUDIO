@@ -55,3 +55,45 @@ export interface MediaListResponse {
     total_pages: number;
     total_results: number;
 }
+
+// TMDB API Response Types
+export interface TMDBPaginatedResponse<T> {
+    page: number;
+    results: T[];
+    total_pages: number;
+    total_results: number;
+}
+
+export interface TMDBCredits {
+    id: number;
+    cast: Array<{
+        adult: boolean;
+        gender: number;
+        id: number;
+        known_for_department: string;
+        name: string;
+        original_name: string;
+        popularity: number;
+        profile_path: string | null;
+        character: string;
+        order: number;
+    }>;
+    crew: Array<{
+        adult: boolean;
+        gender: number;
+        id: number;
+        known_for_department: string;
+        name: string;
+        original_name: string;
+        popularity: number;
+        profile_path: string | null;
+        job: string;
+        department: string;
+    }>;
+}
+
+export interface TMDBErrorResponse {
+    status_code: number;
+    status_message: string;
+    success: boolean;
+}

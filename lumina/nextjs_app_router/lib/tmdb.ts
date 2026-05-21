@@ -1,7 +1,7 @@
 
-import { Media, MediaListResponse } from '../types/media';
+import { Media, TMDBErrorResponse } from '../types/media';
 
-const API_ACCESS_TOKEN = process.env.TMDB_API_ACCESS_TOKEN;
+const API_KEY = process.env.TMDB_API_KEY;
 const BASE_URL = 'https://api.themoviedb.org/3';
 
 const genreMap = {
@@ -12,9 +12,14 @@ const genreMap = {
     movies: { type: 'genre', id: [28, 18] },
 };
 
-async function fetchTMDB(endpoint: string, params: string = ''): Promise<any> {
-    if (!API_ACCESS_TOKEN) {
-        console.error('Error: TMDB_API_ACCESS_TOKEN is not configured in your environment variables.');
+interface TMDBResponse {
+    results?: Media[];
+    [key: string]: unknown;
+}
+
+async function fetchTMDB(endpoint: string, params: string = ''): Promise<Media[] | null> {
+    if (!API_KEY) {
+        console.error('Error: TMDB_API_KEY is not configured in your environment variables.');
         return null;
     }
 
@@ -23,26 +28,38 @@ async function fetchTMDB(endpoint: string, params: string = ''): Promise<any> {
         method: 'GET',
         headers: {
             accept: 'application/json',
-            Authorization: `Bearer ${API_ACCESS_TOKEN}`
+            Authorization: `Bearer ${API_KEY}`
         },
-        next: { revalidate: 3600 } // Cache for 1 hour
+        next: { revalidate: 3600 }
     };
 
     const res = await fetch(url, options);
     
     if (!res.ok) {
-        console.error(`Failed to fetch from TMDB: ${res.statusText}`);
+        const errorData: TMDBErrorResponse = await res.json().catch(() => ({
+            status_code: res.status,
+            status_message: res.statusText,
+            success: false
+        }));
+        console.error(`Failed to fetch from TMDB: ${errorData.status_message}`);
         return null;
     }
-    return res.json();
+    
+    const data = await res.json() as TMDBResponse;
+    return data.results || null;
 }
 
 export async function getTrending(mediaType: 'all' | 'movie' | 'tv' = 'all', timeWindow: 'day' | 'week' = 'week'): Promise<Media[]> {
     const data = await fetchTMDB(`trending/${mediaType}/${timeWindow}`);
-    return data?.results || [];
+    return data || [];
 }
 
-export async function getDiscover(genreSlug: string, sort_by = 'popularity.desc'): Promise<Media[]> {
+// Unified discover function that handles both movies and TV
+export async function discoverMedia(
+    genreSlug: string, 
+    mediaType: 'movie' | 'tv' = 'movie',
+    sort_by = 'popularity.desc'
+): Promise<Media[]> {
     const genreInfo = genreMap[genreSlug as keyof typeof genreMap];
     if (!genreInfo) return [];
 
@@ -51,62 +68,36 @@ export async function getDiscover(genreSlug: string, sort_by = 'popularity.desc'
     if (genreInfo.type === 'keyword') {
         params += `&with_keywords=${genreInfo.id}`;
     } else {
-        const genreIds = Array.isArray(genreInfo.id) ? genreInfo.id.join(',') : genreInfo.id;
+        const genreIds = Array.isArray(genreInfo.id) ? genreInfo.id.join(',') : String(genreInfo.id);
         params += `&with_genres=${genreIds}`;
     }
     
-    if (genreSlug === 'cartoons') {
+    if (genreSlug === 'cartoons' && mediaType === 'movie') {
         params += '&certification_country=US&certification.lte=PG';
     }
     
-    const data = await fetchTMDB('discover/movie', params);
-    return data?.results || [];
+    const endpoint = mediaType === 'movie' ? 'discover/movie' : 'discover/tv';
+    return await fetchTMDB(endpoint, params) || [];
+}
+
+export async function getDiscover(genreSlug: string, sort_by = 'popularity.desc'): Promise<Media[]> {
+    return discoverMedia(genreSlug, 'movie', sort_by);
+}
+
+export async function getDiscoverMovies(genreSlug: string, sort_by = 'popularity.desc'): Promise<Media[]> {
+    return discoverMedia(genreSlug, 'movie', sort_by);
+}
+
+export async function getDiscoverTV(genreSlug: string, sort_by = 'popularity.desc'): Promise<Media[]> {
+    return discoverMedia(genreSlug, 'tv', sort_by);
 }
 
 export async function getMediaDetails(type: 'movie' | 'tv', id: string): Promise<Media | null> {
     const params = 'append_to_response=videos';
     const data = await fetchTMDB(`${type}/${id}`, params);
-    if (!data) return null;
+    if (!data || !data[0]) return null;
 
-    data.media_type = type;
-    return data as Media;
-}
-
-// Wrapper functions for movie and TV discover
-export async function getDiscoverMovies(genreSlug: string, sort_by = 'popularity.desc'): Promise<Media[]> {
-    const genreInfo = genreMap[genreSlug as keyof typeof genreMap];
-    if (!genreInfo) return [];
-
-    let params = `language=en-US&sort_by=${sort_by}&include_adult=false&include_video=false&page=1`;
-
-    if (genreInfo.type === 'keyword') {
-        params += `&with_keywords=${genreInfo.id}`;
-    } else {
-        const genreIds = Array.isArray(genreInfo.id) ? genreInfo.id.join(',') : genreInfo.id;
-        params += `&with_genres=${genreIds}`;
-    }
-
-    if (genreSlug === 'cartoons') {
-        params += '&certification_country=US&certification.lte=PG';
-    }
-
-    const data = await fetchTMDB('discover/movie', params);
-    return data?.results || [];
-}
-
-export async function getDiscoverTV(genreSlug: string, sort_by = 'popularity.desc'): Promise<Media[]> {
-    const genreInfo = genreMap[genreSlug as keyof typeof genreMap];
-    if (!genreInfo) return [];
-
-    let params = `language=en-US&sort_by=${sort_by}&include_adult=false&include_video=false&page=1`;
-
-    if (genreInfo.type === 'keyword') {
-        params += `&with_keywords=${genreInfo.id}`;
-    } else {
-        const genreIds = Array.isArray(genreInfo.id) ? genreInfo.id.join(',') : genreInfo.id;
-        params += `&with_genres=${genreIds}`;
-    }
-
-    const data = await fetchTMDB('discover/tv', params);
-    return data?.results || [];
+    const media = data[0] as Media;
+    media.media_type = type;
+    return media;
 }

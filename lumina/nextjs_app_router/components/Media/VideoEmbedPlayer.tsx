@@ -3,11 +3,13 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Media } from '../../types/media';
+import { getProviderUrl, providerDisplayNames, getAvailableProviders } from '../../lib/providers';
 
 interface VideoEmbedPlayerProps {
     media: Media;
 }
 
+// Built-in server list - displayed in UI
 const servers = [
     { name: 'VidSrc', key: 'vidsrc' },
     { name: 'NexStream', key: 'nexstream' },
@@ -24,25 +26,19 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
     const streamUrl = useMemo(() => {
         const { media_type, id } = media;
         
-        switch (activeServer) {
-            case 'vidsrc':
-                if (media_type === 'tv') {
-                    return `https://vidsrc.cc/v2/embed/tv/${id}/${activeSeason}/${activeEpisode}`;
-                }
-                return `https://vidsrc.cc/v2/embed/movie/${id}`;
-            case '2embed':
-                 if (media_type === 'tv') {
-                    return `https://www.2embed.cc/embed_tv?id=${id}&s=${activeSeason}&e=${activeEpisode}`;
-                }
-                return `https://www.2embed.cc/embed/${id}`;
-            case 'nexstream':
-            case 'vidphantom':
-                 if (media_type === 'tv') {
-                     return `https://vidsrc.me/embed/${id}/${activeSeason}-${activeEpisode}/`;
-                 }
-                 return `https://vidsrc.me/embed/${id}/`;
-            default:
-                return '';
+        try {
+            // Try to use the external provider config
+            return getProviderUrl(activeServer, media_type as 'movie' | 'tv', {
+                id: String(id),
+                s: String(activeSeason),
+                e: String(activeEpisode),
+            });
+        } catch {
+            // Fallback to legacy behavior if config fails
+            if (media_type === 'tv') {
+                return `https://vidsrc.me/embed/${id}/${activeSeason}-${activeEpisode}/`;
+            }
+            return `https://vidsrc.me/embed/${id}/`;
         }
     }, [media, activeServer, activeSeason, activeEpisode]);
 
