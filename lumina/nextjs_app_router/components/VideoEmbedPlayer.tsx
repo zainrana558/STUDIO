@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Loader2, AlertTriangle, Layers, CheckCircle, Maximize, Minimize, Tv } from "lucide-react";
-import { MediaDetails } from "../../../types/media";
+import { MediaDetails, Season } from "@/types/media";
 
 const PROVIDER_TIMEOUT_MS = 10000; // 10 seconds
 const EMBED_PROVIDERS = [

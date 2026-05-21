@@ -1,8 +1,8 @@
 
 import { notFound } from 'next/navigation';
-import { getMediaDetails } from '../../lib/tmdb';
-import { VideoEmbedPlayer } from '../../components/Media/VideoEmbedPlayer';
-import { MediaDetails } from '../../types/media';
+import { getMediaDetails } from '../../../lib/tmdb';
+import { VideoEmbedPlayer } from '../../../components/Media/VideoEmbedPlayer';
+import { MediaDetails } from '../../../types/media';
 
 type MediaPageProps = {
     params: { 

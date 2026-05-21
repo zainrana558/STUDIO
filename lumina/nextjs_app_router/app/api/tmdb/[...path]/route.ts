@@ -46,7 +46,7 @@ export async function GET(
     );
   }
 
-  const TMDB_API_KEY = process.env.TMDB_API_KEY;
+  const TMDB_API_KEY = process.env.TMDB_API_ACCESS_TOKEN;
   if (!TMDB_API_KEY) {
     return NextResponse.json(
       { message: "TMDB API key is not configured." },

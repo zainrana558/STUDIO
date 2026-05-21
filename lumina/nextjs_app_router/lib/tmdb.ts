@@ -71,3 +71,42 @@ export async function getMediaDetails(type: 'movie' | 'tv', id: string): Promise
     data.media_type = type;
     return data as Media;
 }
+
+// Wrapper functions for movie and TV discover
+export async function getDiscoverMovies(genreSlug: string, sort_by = 'popularity.desc'): Promise<Media[]> {
+    const genreInfo = genreMap[genreSlug as keyof typeof genreMap];
+    if (!genreInfo) return [];
+
+    let params = `language=en-US&sort_by=${sort_by}&include_adult=false&include_video=false&page=1`;
+
+    if (genreInfo.type === 'keyword') {
+        params += `&with_keywords=${genreInfo.id}`;
+    } else {
+        const genreIds = Array.isArray(genreInfo.id) ? genreInfo.id.join(',') : genreInfo.id;
+        params += `&with_genres=${genreIds}`;
+    }
+
+    if (genreSlug === 'cartoons') {
+        params += '&certification_country=US&certification.lte=PG';
+    }
+
+    const data = await fetchTMDB('discover/movie', params);
+    return data?.results || [];
+}
+
+export async function getDiscoverTV(genreSlug: string, sort_by = 'popularity.desc'): Promise<Media[]> {
+    const genreInfo = genreMap[genreSlug as keyof typeof genreMap];
+    if (!genreInfo) return [];
+
+    let params = `language=en-US&sort_by=${sort_by}&include_adult=false&include_video=false&page=1`;
+
+    if (genreInfo.type === 'keyword') {
+        params += `&with_keywords=${genreInfo.id}`;
+    } else {
+        const genreIds = Array.isArray(genreInfo.id) ? genreInfo.id.join(',') : genreInfo.id;
+        params += `&with_genres=${genreIds}`;
+    }
+
+    const data = await fetchTMDB('discover/tv', params);
+    return data?.results || [];
+}
