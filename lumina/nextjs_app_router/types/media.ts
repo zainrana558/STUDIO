@@ -15,6 +15,15 @@ export interface Video {
   type: string;
 }
 
+export interface Season {
+  id: number;
+  season_number: number;
+  episode_count?: number;
+  name: string;
+  poster_path?: string;
+  overview?: string;
+}
+
 export interface Media {
   id: number;
   title?: string;
@@ -28,6 +37,16 @@ export interface Media {
   vote_average: number;
   genres: Genre[];
   videos: { results: Video[] };
+  seasons?: Season[];
+}
+
+export interface MediaDetails extends Media {
+  // Additional fields available in details endpoint
+  runtime?: number;
+  episode_run_time?: number[];
+  status?: string;
+  tagline?: string;
+  imdb_id?: string;
 }
 
 export interface MediaListResponse {

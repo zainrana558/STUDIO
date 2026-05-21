@@ -3,14 +3,12 @@ import '../styles/globals.css';
 import { PageTransition } from '../components/Layout/PageTransition';
 import { ResponsiveLayout } from '../components/Layout/ResponsiveLayout';
 import { MobileBottomNav } from '../components/Layout/MobileBottomNav';
-import { Space_Grotesk, Fredoka_One, Creepster, Orbitron, Playfair_Display } from 'next/font/google';
+import { Space_Grotesk, Creepster, Orbitron } from 'next/font/google';
 
 // --- Font Definitions for Dynamic Theming ---
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
-const fredokaOne = Fredoka_One({ subsets: ['latin'], weight: '400', variable: '--font-fredoka-one' });
 const creepster = Creepster({ subsets: ['latin'], weight: '400', variable: '--font-creepster' });
 const orbitron = Orbitron({ subsets: ['latin'], variable: '--font-orbitron' });
-const playfairDisplay = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair-display' });
 
 export const metadata = {
   title: 'Lumina - Next-Gen Streaming',
@@ -24,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const nonce = headers().get('x-nonce') || "";
 
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${fredokaOne.variable} ${creepster.variable} ${orbitron.variable} ${playfairDisplay.variable}`}>
+    <html lang="en" className={`${spaceGrotesk.variable} ${creepster.variable} ${orbitron.variable}`}>
        <head>
         <script nonce={nonce} />
       </head>

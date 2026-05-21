@@ -23,7 +23,7 @@ export const MediaCard = ({ item, theme }: MediaCardProps) => {
   const themeOverlayEffects: Record<Theme['id'], string> = {
     anime: 'group-hover:shadow-[0_0_25px_var(--color-accent)] group-hover:border-2 group-hover:border-[var(--color-accent)]',
     cartoon: 'group-hover:scale-110',
-    horror: 'before:content-[''] before:absolute before:inset-0 before:bg-black before:opacity-0 group-hover:before:opacity-50 before:transition-opacity before:duration-500',
+    horror: 'before:content-[\'\'] before:absolute before:inset-0 before:bg-black before:opacity-0 group-hover:before:opacity-50 before:transition-opacity before:duration-500',
     scifi: 'group-hover:shadow-[0_0_20px_var(--color-primary)]',
     cinematic_classic: 'group-hover:sepia-[50%] group-hover:saturate-150',
     default: 'group-hover:brightness-110',
