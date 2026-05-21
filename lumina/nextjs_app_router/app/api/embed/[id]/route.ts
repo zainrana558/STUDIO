@@ -2,24 +2,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Ratelimit } from "@upstash/ratelimit";
 import { kv } from "@vercel/kv";
+import { getProviderUrl } from '@/lib/providers';
 
-type ProviderBuilder = (params: { id: string; s?: string; e?: string }) => string;
-
+// Rate limit: 10 requests per 10 seconds per IP
 const ratelimit = new Ratelimit({
   redis: kv,
   limiter: Ratelimit.slidingWindow(10, "10s"),
 });
-
-const providerUrlMap: Record<string, ProviderBuilder> = {
-  vidsrc: ({ id, s, e }) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
-  vidsrc_movie: ({ id }) => `https://vidsrc.to/embed/movie/${id}`,
-  vidphantom: ({ id, s, e }) => `https://vidphantom.com/embed/tv/${id}/${s}/${e}`,
-  vidphantom_movie: ({ id }) => `https://vidphantom.com/embed/movie/${id}`,
-  '2embed': ({ id, s, e }) => `https://www.2embed.cc/embed_tv?id=${id}&s=${s}&e=${e}`,
-  '2embed_movie': ({ id }) => `https://www.2embed.cc/embed/${id}`,
-  nexstream: ({ id, s, e }) => `https://nexstream.site/embed/tv/${id}/${s}/${e}?signature=${process.env.NEXSTREAM_API_KEY}&ref=lumina`,
-  nexstream_movie: ({ id }) => `https://nexstream.site/embed/movie/${id}?signature=${process.env.NEXSTREAM_API_KEY}&ref=lumina`,
-};
 
 export async function GET(
   request: NextRequest,
@@ -43,20 +32,15 @@ export async function GET(
     return new NextResponse('Missing required parameters: id, media_type, provider', { status: 400 });
   }
   
+  // Validate provider availability
   if (provider === 'nexstream' && !process.env.NEXSTREAM_API_KEY) {
      console.error('FATAL: NEXSTREAM_API_KEY is not set in environment variables.');
      return new NextResponse('Internal Server Configuration Error', { status: 500 });
   }
 
-  const providerKey = mediaType === 'movie' ? `${provider}_movie` : provider;
-  const builder = providerUrlMap[providerKey];
-
-  if (!builder) {
-    return new NextResponse(`Invalid provider: ${provider}`, { status: 400 });
-  }
-
   try {
-    const embedUrl = builder({ id, s: season, e: episode });
+    // Use centralized provider URL builder
+    const embedUrl = getProviderUrl(provider, mediaType as 'movie' | 'tv', { id, s: season, e: episode });
     return NextResponse.redirect(embedUrl, { status: 307 });
   } catch (error) {
       console.error(`[EMBED_REDIRECT_ERROR] for provider ${provider}:`, error);

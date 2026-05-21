@@ -50,3 +50,65 @@ create policy "Public profiles are viewable by everyone" on public.profiles
 create policy "Users can update their own profile" on public.profiles
     for update using (auth.uid() = id);
 
+-- ==========================================
+-- 3. WATCHLIST TABLE
+-- ==========================================
+
+-- Watchlist table for storing user's media favorites
+create table public.watchlists (
+    id uuid default gen_random_uuid() primary key,
+    user_id uuid references auth.users on delete cascade not null,
+    tmdb_id text not null,
+    media_type text not null check (media_type in ('movie', 'tv')),
+    title text not null,
+    poster_path text,
+    added_at timestamptz default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS for watchlists
+alter table public.watchlists enable row level security;
+
+-- Policy: Users can only view their own watchlist
+create policy "Users can view own watchlist" on public.watchlists
+    for select using (auth.uid() = user_id);
+
+-- Policy: Users can only insert their own watchlist
+create policy "Users can insert own watchlist" on public.watchlists
+    for insert with check (auth.uid() = user_id);
+
+-- Policy: Users can only delete their own watchlist
+create policy "Users can delete own watchlist" on public.watchlists
+    for delete using (auth.uid() = user_id);
+
+-- ==========================================
+-- 4. CONTINUE WATCHING TABLE
+-- ==========================================
+
+-- Continue watching for storing playback progress
+create table public.continue_watching (
+    id uuid default gen_random_uuid() primary key,
+    user_id uuid references auth.users on delete cascade not null,
+    tmdb_id text not null,
+    media_type text not null check (media_type in ('movie', 'tv')),
+    title text not null,
+    poster_path text,
+    progress_seconds integer default 0,
+    duration_seconds integer not null,
+    season_number integer,
+    episode_number integer,
+    episode_title text,
+    updated_at timestamptz default timezone('utc'::text, now()) not null,
+    unique(user_id, tmdb_id, media_type)
+);
+
+-- Enable RLS for continue_watching
+alter table public.continue_watching enable row level security;
+
+-- Policy: Users can only view their own continue watching
+create policy "Users can view own continue watching" on public.continue_watching
+    for select using (auth.uid() = user_id);
+
+-- Policy: Users can only insert/update their own continue watching
+create policy "Users can insert own continue watching" on public.continue_watching
+    for all using (auth.uid() = user_id);
+
