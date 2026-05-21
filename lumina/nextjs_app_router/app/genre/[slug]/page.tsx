@@ -47,7 +47,7 @@ export default async function GenrePage({ params }: GenrePageProps) {
                         No content available
                     </h2>
                     <p className="text-gray-400 mb-6">
-                        We couldn't find any content for this genre right now.
+                        We couldn&apos;t find any content for this genre right now.
                     </p>
                     <Link href="/" className="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">
                         Browse other genres

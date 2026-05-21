@@ -17,7 +17,7 @@ interface MediaCardProps {
  * It is a Client Component designed to receive theme data from a Server Component parent.
  */
 export const MediaCard = ({ item, theme }: MediaCardProps) => {
-  const imageUrl = `https://image.tmdb.org/t/p/w500${item.poster_path}`;
+  const imageUrl = item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '';
   const mediaType = item.media_type || 'movie';
 
   const themeOverlayEffects: Record<Theme['id'], string> = {
@@ -52,13 +52,19 @@ export const MediaCard = ({ item, theme }: MediaCardProps) => {
           transition={{ ...theme.motion.spring, duration: 0.3 }}
         >
           <div className={`aspect-[2/3] bg-black/50 ${themeOverlayEffects[theme.id]} transition-all duration-300 ${theme.styles.card.borderRadius}`}>
-            <Image
-              src={imageUrl}
-              alt={item.title || item.name || ''}
-              fill
-              style={{ objectFit: 'cover' }}
-              className="transition-transform duration-500 ease-in-out group-hover:scale-105"
-            />
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt={item.title || item.name || ''}
+                fill
+                style={{ objectFit: 'cover' }}
+                className="transition-transform duration-500 ease-in-out group-hover:scale-105"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                <span className="text-gray-500 text-xs">No Image</span>
+              </div>
+            )}
           </div>
           
           <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">

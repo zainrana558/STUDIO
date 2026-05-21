@@ -3,13 +3,11 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Media } from '../../types/media';
-import { getProviderUrl, providerDisplayNames, getAvailableProviders } from '../../lib/providers';
 
 interface VideoEmbedPlayerProps {
     media: Media;
 }
 
-// Built-in server list - displayed in UI
 const servers = [
     { name: 'VidSrc', key: 'vidsrc' },
     { name: 'NexStream', key: 'nexstream' },
@@ -25,21 +23,14 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
 
     const streamUrl = useMemo(() => {
         const { media_type, id } = media;
-        
-        try {
-            // Try to use the external provider config
-            return getProviderUrl(activeServer, media_type as 'movie' | 'tv', {
-                id: String(id),
-                s: String(activeSeason),
-                e: String(activeEpisode),
-            });
-        } catch {
-            // Fallback to legacy behavior if config fails
-            if (media_type === 'tv') {
-                return `https://vidsrc.me/embed/${id}/${activeSeason}-${activeEpisode}/`;
-            }
-            return `https://vidsrc.me/embed/${id}/`;
+        const params = new URLSearchParams();
+        params.set('media_type', media_type || 'movie');
+        params.set('provider', activeServer);
+        if (media_type === 'tv') {
+            params.set("s", String(activeSeason));
+            params.set("e", String(activeEpisode));
         }
+        return `/api/embed/${id}?${params.toString()}`;
     }, [media, activeServer, activeSeason, activeEpisode]);
 
     const officialTrailer = media.videos?.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
@@ -58,7 +49,7 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                         className="w-full h-full absolute top-0 left-0"
                         frameBorder="0"
                         allowFullScreen
-                        sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts"
+                        sandbox="allow-forms allow-pointer-lock allow-same-origin allow-scripts allow-presentation"
                     />
                 </AnimatePresence>
             </div>
@@ -75,7 +66,7 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                     ))}
                 </div>
                 {officialTrailer && (
-                    <button 
+                    <button
                         onClick={() => setIsTrailerOpen(true)}
                         className='px-4 py-2 text-sm rounded-md bg-yellow-500 hover:bg-yellow-600 text-black transition-colors'>
                         Watch Trailer
@@ -84,7 +75,7 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
             </div>
             <div className='p-4'>
               <div className='flex flex-wrap gap-2'>
-                {media.genres.map((genre) => (
+                {(media.genres || []).map((genre) => (
                   <span key={genre.id} className='px-2 py-1 text-xs rounded-full bg-gray-700'>
                     {genre.name}
                   </span>
@@ -96,19 +87,19 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                 <div className="p-4 md:p-8">
                     <div className="flex space-x-2 border-b border-gray-700 mb-4">
                         {media.seasons.map(season => (
-                            <button 
-                                key={season.id} 
+                            <button
+                                key={season.id}
                                 onClick={() => setActiveSeason(season.season_number)}
                                 className={`pb-2 px-4 ${activeSeason === season.season_number ? 'border-b-2 border-red-500 text-white' : 'text-gray-400'}`}>
                                 Season {season.season_number}
                             </button>
                         ))}
                     </div>
-                    
+
                     <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-12 gap-2">
                         {Array.from({ length: media.seasons.find(s => s.season_number === activeSeason)?.episode_count || 0 }, (_, i) => i + 1).map(episode => (
-                            <button 
-                                key={episode} 
+                            <button
+                                key={episode}
                                 onClick={() => setActiveEpisode(episode)}
                                 className={`aspect-square rounded-md transition-colors ${activeEpisode === episode ? 'bg-red-600' : 'bg-gray-800 hover:bg-gray-700'}`}>
                                 {episode}
@@ -117,10 +108,10 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                     </div>
                 </div>
             )}
-            
+
             <AnimatePresence>
                 {isTrailerOpen && officialTrailer && (
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -128,11 +119,11 @@ export const VideoEmbedPlayer = ({ media }: VideoEmbedPlayerProps) => {
                         onClick={() => setIsTrailerOpen(false)}
                     >
                         <div className="aspect-video bg-black w-full max-w-4xl">
-                             <iframe 
+                             <iframe
                                  src={`https://www.youtube.com/embed/${officialTrailer.key}?autoplay=1`}
                                  title={officialTrailer.name}
-                                 frameBorder="0" 
-                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                 frameBorder="0"
+                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                  allowFullScreen
                                  className='w-full h-full'
                              ></iframe>

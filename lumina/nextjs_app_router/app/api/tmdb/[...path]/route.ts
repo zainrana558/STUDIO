@@ -12,7 +12,6 @@ const ALLOWED_PATHS = [
 
 const ratelimit = new Ratelimit({
   redis: kv,
-  // 5 requests from the same IP in 10 seconds
   limiter: Ratelimit.slidingWindow(5, "10s"),
 });
 
@@ -28,15 +27,27 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const ip = request.ip ?? "127.0.0.1";
 
-  const { success, pending, limit, reset, remaining } = await ratelimit.limit(
-    `ratelimit_tmdb_${ip}`
-  );
-
-  if (!success) {
-    return NextResponse.json(
-      { message: "Too many requests. Please try again later." },
-      { status: 429, statusText: "Too Many Requests" }
+  try {
+    const { success, limit, remaining, reset } = await ratelimit.limit(
+      `ratelimit_tmdb_${ip}`
     );
+
+    if (!success) {
+      return NextResponse.json(
+        { message: "Too many requests. Please try again later." },
+        {
+          status: 429,
+          statusText: "Too Many Requests",
+          headers: {
+            "X-RateLimit-Limit": String(limit),
+            "X-RateLimit-Remaining": String(remaining),
+            "X-RateLimit-Reset": String(reset),
+          },
+        }
+      );
+    }
+  } catch {
+    console.warn("[TMDB_PROXY] Rate limit check failed, allowing request.");
   }
 
   if (!isAllowed(path)) {
@@ -54,11 +65,9 @@ export async function GET(
     );
   }
 
-  const queryString = Array.from(searchParams.entries())
-    .map(([key, value]) => `${key}=${value}`)
-    .join("&");
-
-  const tmdbUrl = `https://api.themoviedb.org/3/${path}?api_key=${TMDB_API_KEY}&${queryString}`;
+  const upstreamParams = new URLSearchParams(searchParams);
+  upstreamParams.set("api_key", TMDB_API_KEY);
+  const tmdbUrl = `https://api.themoviedb.org/3/${path}?${upstreamParams.toString()}`;
 
   try {
     const tmdbResponse = await fetch(tmdbUrl, {
@@ -68,7 +77,10 @@ export async function GET(
     });
 
     if (!tmdbResponse.ok) {
-      const errorBody = await tmdbResponse.json();
+      const errorBody = await tmdbResponse.json().catch(() => ({
+        status_code: tmdbResponse.status,
+        status_message: tmdbResponse.statusText,
+      }));
       return NextResponse.json(errorBody, {
         status: tmdbResponse.status,
         statusText: tmdbResponse.statusText,

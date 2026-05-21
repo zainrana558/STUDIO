@@ -1,17 +1,16 @@
 
 import { createSupabaseServerClient } from './supabase/server';
 
-// Note: We are using the server client here because these functions are intended
-// to be used in Server Components and Route Handlers. For client-side data
-// fetching, you would typically use the browser client.
-
-const supabase = createSupabaseServerClient();
+function getSupabase() {
+    return createSupabaseServerClient();
+}
 
 // ==========================================
 // WATCHLIST OPERATIONS
 // ==========================================
 
 export async function getWatchlist(userId: string) {
+    const supabase = getSupabase();
     const { data, error } = await supabase
         .from('watchlists')
         .select('*')
@@ -23,6 +22,7 @@ export async function getWatchlist(userId: string) {
 }
 
 export async function addToWatchlist(userId: string, item: { tmdb_id: string; media_type: 'movie' | 'tv'; title: string; poster_path?: string }) {
+    const supabase = getSupabase();
     const { data, error } = await supabase
         .from('watchlists')
         .insert([{ ...item, user_id: userId }])
@@ -33,6 +33,7 @@ export async function addToWatchlist(userId: string, item: { tmdb_id: string; me
 }
 
 export async function removeFromWatchlist(userId: string, tmdbId: string) {
+    const supabase = getSupabase();
     const { error } = await supabase
         .from('watchlists')
         .delete()
@@ -48,6 +49,7 @@ export async function removeFromWatchlist(userId: string, tmdbId: string) {
 // ==========================================
 
 export async function getContinueWatching(userId: string) {
+    const supabase = getSupabase();
     const { data, error } = await supabase
         .from('continue_watching')
         .select('*')
@@ -59,8 +61,7 @@ export async function getContinueWatching(userId: string) {
 }
 
 export async function updatePlaybackProgress(userId: string, progress: { tmdb_id: string; media_type: 'movie' | 'tv'; title: string; poster_path?: string; progress_seconds: number; duration_seconds: number; season_number?: number; episode_number?: number, episode_title?: string; }) {
-    // The 'upsert' operation will create a new record if one doesn't exist, 
-    // or update it if it does.
+    const supabase = getSupabase();
     const { data, error } = await supabase
         .from('continue_watching')
         .upsert({ ...progress, user_id: userId }, { onConflict: 'user_id,tmdb_id,media_type' })
@@ -75,23 +76,25 @@ export async function updatePlaybackProgress(userId: string, progress: { tmdb_id
 // ==========================================
 
 export async function getProfile(userId: string) {
+    const supabase = getSupabase();
     const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single(); // .single() expects only one row and will error otherwise
+        .maybeSingle();
 
     if (error) throw new Error(error.message);
     return data;
 }
 
 export async function updateProfile(userId: string, profileData: { username?: string; avatar_url?: string; }) {
+    const supabase = getSupabase();
     const { data, error } = await supabase
         .from('profiles')
         .update(profileData)
         .eq('id', userId)
         .select();
-        
+
     if (error) throw new Error(error.message);
     return data;
 }

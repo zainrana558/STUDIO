@@ -21,13 +21,17 @@ export const HeroBanner = ({ media, theme }: HeroBannerProps) => {
     return (
         <div className="h-[90vh] w-full relative overflow-hidden" style={{ background: theme.colors.secondary }}>
             <motion.div className="absolute inset-0 z-0" style={{ y }}>
-                <Image
-                    src={`https://image.tmdb.org/t/p/original${media.backdrop_path}`}
-                    alt={media.title || media.name || 'Hero background'}
-                    fill
-                    style={{ objectFit: 'cover', objectPosition: 'center' }}
-                    priority
-                />
+                {media.backdrop_path ? (
+                    <Image
+                        src={`https://image.tmdb.org/t/p/original${media.backdrop_path}`}
+                        alt={media.title || media.name || 'Hero background'}
+                        fill
+                        style={{ objectFit: 'cover', objectPosition: 'center' }}
+                        priority
+                    />
+                ) : (
+                    <div className="w-full h-full bg-gray-900" />
+                )}
                 <div 
                     className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80"
                 />
@@ -49,7 +53,7 @@ export const HeroBanner = ({ media, theme }: HeroBannerProps) => {
                     transition={{ duration: 0.8, delay: 0.2, ...theme.motion.bezier }}
                     className="max-w-3xl text-lg md:text-xl mb-8"
                 >
-                    {media.overview}
+                    {media.overview || ''}
                 </motion.p>
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}

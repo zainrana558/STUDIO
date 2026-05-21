@@ -4,7 +4,6 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { kv } from "@vercel/kv";
 import { getProviderUrl } from '@/lib/providers';
 
-// Rate limit: 10 requests per 10 seconds per IP
 const ratelimit = new Ratelimit({
   redis: kv,
   limiter: Ratelimit.slidingWindow(10, "10s"),
@@ -15,10 +14,14 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   const ip = request.ip ?? "127.0.0.1";
-  const { success } = await ratelimit.limit(`ratelimit_embed_${ip}`);
 
-  if (!success) {
-    return new NextResponse(JSON.stringify({ message: 'Too many requests' }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+  try {
+    const { success } = await ratelimit.limit(`ratelimit_embed_${ip}`);
+    if (!success) {
+      return new NextResponse(JSON.stringify({ message: 'Too many requests' }), { status: 429, headers: { 'Content-Type': 'application/json' } });
+    }
+  } catch {
+    console.warn("[EMBED] Rate limit check failed, allowing request.");
   }
 
   const { searchParams } = new URL(request.url);
@@ -31,15 +34,12 @@ export async function GET(
   if (!id || !mediaType || !provider) {
     return new NextResponse('Missing required parameters: id, media_type, provider', { status: 400 });
   }
-  
-  // Validate provider availability
-  if (provider === 'nexstream' && !process.env.NEXSTREAM_API_KEY) {
-     console.error('FATAL: NEXSTREAM_API_KEY is not set in environment variables.');
-     return new NextResponse('Internal Server Configuration Error', { status: 500 });
+
+  if (!/^\d+$/.test(season) || !/^\d+$/.test(episode)) {
+    return new NextResponse('Invalid season or episode number', { status: 400 });
   }
 
   try {
-    // Use centralized provider URL builder
     const embedUrl = getProviderUrl(provider, mediaType as 'movie' | 'tv', { id, s: season, e: episode });
     return NextResponse.redirect(embedUrl, { status: 307 });
   } catch (error) {

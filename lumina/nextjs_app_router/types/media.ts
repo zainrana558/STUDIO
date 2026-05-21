@@ -28,20 +28,19 @@ export interface Media {
   id: number;
   title?: string;
   name?: string;
-  poster_path: string;
-  backdrop_path: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
   release_date?: string;
   first_air_date?: string;
   media_type?: 'movie' | 'tv';
-  overview: string;
-  vote_average: number;
-  genres: Genre[];
-  videos: { results: Video[] };
+  overview?: string;
+  vote_average?: number;
+  genres?: Genre[];
+  videos?: { results: Video[] };
   seasons?: Season[];
 }
 
 export interface MediaDetails extends Media {
-  // Additional fields available in details endpoint
   runtime?: number;
   episode_run_time?: number[];
   status?: string;
